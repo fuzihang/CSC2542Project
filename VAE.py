@@ -1,5 +1,5 @@
-IN_DIM = 28 * 28
-LATENT_DIM = 2
+IN_DIM = 120 * 160
+LATENT_DIM = 32
 HIDDEN_UNITS = 500
 
 from utils import DEVICE
@@ -34,6 +34,28 @@ def compute_log_pdf_diagonal_gaussian(x, mean, std):
     return result
 
 
+def compute_loss(x_batch, z_batch, mean, log_var, out):
+    # log_q(z|x) logprobability of z under approximate posterior N(μ,σ^2)
+    log_q_z_x = compute_log_pdf_diagonal_gaussian(z_batch, mean, torch.sqrt(torch.exp(log_var)))
+
+    # log_p_z(z) log probability of z under prior
+    log_p_z_z = compute_log_pdf_diagonal_gaussian(z_batch, torch.tensor(0).to(DEVICE), torch.tensor(1.0).to(DEVICE))
+
+    # log_p(x|z) - conditional probability of data given latents.
+    log_p_x_z = compute_log_pdf_bernoulli(x_batch, out)
+
+    L = -(log_p_x_z + log_p_z_z - log_q_z_x) / x_batch.shape[0]
+    return L
+    # BCE = F.mse_loss(out, x_batch, size_average=False)
+    #
+    # # see Appendix B from VAE paper:
+    # # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
+    # # https://arxiv.org/abs/1312.6114
+    # # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
+    # KLD = -0.5 * torch.sum(1 + 2 * log_var - mean.pow(2) - (2 * log_var).exp())
+    # return BCE + KLD
+
+
 x = np.random.randn(1000, 2)
 m = np.zeros((1000, 2))
 s = np.ones((1000, 2))
@@ -64,16 +86,26 @@ class VAE(nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.ly1 = nn.Linear(IN_DIM, HIDDEN_UNITS)
-        self.ly2_mean = nn.Linear(HIDDEN_UNITS, LATENT_DIM)
-        self.ly2_logvar = nn.Linear(HIDDEN_UNITS, LATENT_DIM)
-        self.ly3 = nn.Linear(LATENT_DIM, HIDDEN_UNITS)
-        self.ly4 = nn.Linear(HIDDEN_UNITS, IN_DIM)
+        self.ly1 = nn.Conv2d(3, 32, 4, stride=2)
+        self.ly2 = nn.Conv2d(32, 64, 4, stride=2)
+        self.ly3 = nn.Conv2d(64, 128, 4, stride=2)
+        self.ly4 = nn.Conv2d(128, 256, 4, stride=2)
+        self.mean = nn.Linear(2*2*256, LATENT_DIM)
+        self.logvar = nn.Linear(2*2*256, LATENT_DIM)
+        self.ly5 = nn.Linear(LATENT_DIM, 2*2*256)
+        self.ly6 = nn.ConvTranspose2d(1024, 128, 5, stride=2)
+        self.ly7 = nn.ConvTranspose2d(128, 64, 5, stride=2)
+        self.ly8 = nn.ConvTranspose2d(64, 32, 6, stride=2)
+        self.ly9 = nn.ConvTranspose2d(32, 3, 6, stride=2)
 
     def encode(self, x):
-        h = F.relu(self.ly1(x))
-        mean = self.ly2_mean(h)
-        log_var = self.ly2_logvar(h)
+        x = F.relu(self.ly1(x))
+        x = F.relu(self.ly2(x))
+        x = F.relu(self.ly3(x))
+        x = F.relu(self.ly4(x))
+        x = x.view(x.size(0), -1)
+        mean = self.mean(x)
+        log_var = self.logvar(x)
         return mean, log_var
 
     # Define sample from recognition model
@@ -86,8 +118,12 @@ class VAE(nn.Module):
     # Define MLP for generative model / "decoder"
     # Provides parameters for distribution p(x|z)
     def decode(self, z):
-        h = F.relu(self.ly3(z))
-        return torch.sigmoid(self.ly4(h))
+        x = F.relu(self.ly5(z))
+        x = x.unsqueeze(-1).unsqueeze(-1)
+        x = F.relu(self.ly6(x))
+        x = F.relu(self.ly7(x))
+        x = F.relu(self.ly8(x))
+        return torch.sigmoid(self.ly9(x))
 
     def forward(self, x):
         mean, log_var = self.encode(x)

@@ -3,7 +3,9 @@ from gym import spaces
 from vizdoom import *
 import numpy as np
 import os
-# from gym.envs.classic_control import rendering
+from gym.envs.classic_control import rendering
+from scipy.misc import imresize
+
 
 CONFIGS = [['basic.cfg', 3],                # 0
            ['deadly_corridor.cfg', 7],      # 1
@@ -54,13 +56,13 @@ class VizdoomEnv(gym.Env):
 
         info = {'dummy': 0}
 
-        return observation, reward, done, info
+        return np.array(imresize(observation, (64, 64))), reward, done, info
 
     def reset(self):
         self.game.new_episode()
         self.state = self.game.get_state()
         img = self.state.screen_buffer
-        return np.transpose(img, (1, 2, 0))
+        return np.array(imresize(img, (64, 64)))
 
     def render(self, mode='human'):
         # try:
@@ -69,8 +71,9 @@ class VizdoomEnv(gym.Env):
         #
         #     if self.viewer is None:
         #         self.viewer = rendering.SimpleImageViewer()
-        #     self.viewer.imshow(img)
+        #     self.viewer.imshow(np.array(imresize(img, (64, 64))))
         # except AttributeError:
+        #     pass
         pass
 
     @staticmethod
