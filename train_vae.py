@@ -13,7 +13,9 @@ from utils import DEVICE, str2bool
 from VAE import *
 from torchvision import transforms
 
-EPOCHS = 200
+EPOCHS = 500
+TRAIN_DIR = 'VAE_train_data'
+VALID_DIR = 'VAE_valid_data'
 
 def train_vae(model, iterator, opt, start_time):
     model.train()
@@ -63,19 +65,35 @@ if __name__ == '__main__':
     import time
     model = VAE().to(DEVICE)
     opt = torch.optim.Adam(model.parameters())
-    training_dataset = DoomDataset('VAE_train_data', 3)
-    training_iterator = DataLoader(training_dataset, batch_size=1)
+    training_dataset = DoomDataset(TRAIN_DIR, 3)
+    training_iterator = DataLoader(training_dataset, batch_size=100, shuffle=True)
 
-    valid_dataset = DoomDataset('VAE_valid_data', 3)
-    valid_iterator = DataLoader(valid_dataset, batch_size=1)
+    valid_dataset = DoomDataset(VALID_DIR, 3)
+    valid_iterator = DataLoader(valid_dataset, batch_size=100)
     best_val_loss = float('inf')
+    from torch.optim.lr_scheduler import ReduceLROnPlateau
+
+    # scheduler = ReduceLROnPlateau(opt, 'min', patience=5)
+
+    from early_stopping import EarlyStopping
+
+    # early_stopping = EarlyStopping('min', patience=30)
     for epoch in range(EPOCHS):
         print(epoch)
         train_vae(model, training_iterator, opt, time.time())
         valid_loss = val_loss(model, valid_iterator)
         print(f'valid_loss: {valid_loss}')
+        # scheduler.step(valid_loss)
+        # early_stopping.step(valid_loss)
         if valid_loss < best_val_loss:
             best_val_loss = valid_loss
             torch.save(model.state_dict(), 'vae_best_val_weights')
+
+        # if early_stopping.stop:
+        #     torch.save(model.state_dict(), 'vae_final.weights')
+        #     print(f'Early stopping at epoch {epoch}')
+        #     break
+
+        torch.save(model.state_dict(), 'vae_final.weights')
 
     torch.save(model.state_dict(), 'vae_final.weights')

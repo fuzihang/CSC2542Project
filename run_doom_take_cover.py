@@ -1,10 +1,10 @@
 import numpy as np
-from vizdoombasic import VizdoomBasic
+from vizdoom_take_cover import VizdoomTakeCover
 import os
-env = VizdoomBasic()
-NUM_EPISODES = 100
+env = VizdoomTakeCover()
+NUM_EPISODES = 200
 MAX_STEPS = 300
-OUT_DIR = 'VAE_train_data'
+OUT_DIR = 'VAE_take_cover_valid_data'
 t = 0
 total_step = 0
 
@@ -26,7 +26,7 @@ for eps in range(NUM_EPISODES):
 
 
     while t < MAX_STEPS:
-        action = np.random.randint(0, 3)
+        action = np.random.randint(0, 2)
         o, r, d, _ = env.step(action)
 
         t += 1

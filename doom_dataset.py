@@ -44,6 +44,6 @@ class DoomDataset(Dataset):
         #
         # raise IndexError('Index out of range.')
         data = np.load(os.path.join(self.root_dir, self.filenames[idx]))
-        images = data['obs.npy'].astype(np.float) / 255.0
-        return np.moveaxis(images, -1, 1)
+        image = (data / 255.0).astype(np.float32)
+        return np.moveaxis(image, -1, 0)
 

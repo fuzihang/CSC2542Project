@@ -1,5 +1,4 @@
-IN_DIM = 120 * 160
-LATENT_DIM = 32
+LATENT_DIM = 64
 HIDDEN_UNITS = 500
 
 from utils import DEVICE
@@ -36,24 +35,24 @@ def compute_log_pdf_diagonal_gaussian(x, mean, std):
 
 def compute_loss(x_batch, z_batch, mean, log_var, out):
     # log_q(z|x) logprobability of z under approximate posterior N(μ,σ^2)
-    log_q_z_x = compute_log_pdf_diagonal_gaussian(z_batch, mean, torch.sqrt(torch.exp(log_var)))
-
-    # log_p_z(z) log probability of z under prior
-    log_p_z_z = compute_log_pdf_diagonal_gaussian(z_batch, torch.tensor(0).to(DEVICE), torch.tensor(1.0).to(DEVICE))
-
-    # log_p(x|z) - conditional probability of data given latents.
-    log_p_x_z = compute_log_pdf_bernoulli(x_batch, out)
-
-    L = -(log_p_x_z + log_p_z_z - log_q_z_x) / x_batch.shape[0]
-    return L
-    # BCE = F.mse_loss(out, x_batch, size_average=False)
+    # log_q_z_x = compute_log_pdf_diagonal_gaussian(z_batch, mean, torch.sqrt(torch.exp(log_var)))
     #
-    # # see Appendix B from VAE paper:
-    # # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
-    # # https://arxiv.org/abs/1312.6114
-    # # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
-    # KLD = -0.5 * torch.sum(1 + 2 * log_var - mean.pow(2) - (2 * log_var).exp())
-    # return BCE + KLD
+    # # log_p_z(z) log probability of z under prior
+    # log_p_z_z = compute_log_pdf_diagonal_gaussian(z_batch, torch.tensor(0).to(DEVICE), torch.tensor(1.0).to(DEVICE))
+    #
+    # # log_p(x|z) - conditional probability of data given latents.
+    # log_p_x_z = compute_log_pdf_bernoulli(x_batch, out)
+    #
+    # L = -(log_p_x_z + log_p_z_z - log_q_z_x) / x_batch.shape[0]
+    # return L
+    BCE = F.mse_loss(out, x_batch, size_average=False)
+
+    # see Appendix B from VAE paper:
+    # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
+    # https://arxiv.org/abs/1312.6114
+    # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
+    KLD = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())
+    return BCE + KLD
 
 
 x = np.random.randn(1000, 2)
