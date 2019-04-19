@@ -1,6 +1,9 @@
 import numpy as np
 from vizdoom_take_cover import VizdoomTakeCover
 import os
+import sys
+start_eps = int(sys.argv[1])
+end_eps = int(sys.argv[2])
 env = VizdoomTakeCover()
 NUM_EPISODES = 200
 MAX_STEPS = 300
@@ -11,7 +14,7 @@ total_step = 0
 if not os.path.exists(OUT_DIR):
     os.mkdir(OUT_DIR)
 
-for eps in range(NUM_EPISODES):
+for eps in range(start_eps, end_eps):
 
     obs = []
     acs = []
