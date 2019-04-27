@@ -2,9 +2,9 @@ import numpy as np
 from vizdoombasic import VizdoomBasic
 import os
 env = VizdoomBasic()
-NUM_EPISODES = 100
+NUM_EPISODES = 10
 MAX_STEPS = 300
-OUT_DIR = 'VAE_train_data'
+OUT_DIR = 'VAE_valid_data'
 t = 0
 total_step = 0
 

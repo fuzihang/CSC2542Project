@@ -3,7 +3,7 @@ from gym import spaces
 from vizdoom import *
 import numpy as np
 import os
-from gym.envs.classic_control import rendering
+# from gym.envs.classic_control import rendering
 from scipy.misc import imresize
 
 
@@ -59,7 +59,9 @@ class VizdoomEnv(gym.Env):
         return np.array(imresize(observation, (64, 64))), reward, done, info
 
     def reset(self):
+        self.game.set_seed(np.random.randint(0, 10000000))
         self.game.new_episode()
+        # self.game.set_seed(0)
         self.state = self.game.get_state()
         img = self.state.screen_buffer
         return np.array(imresize(img, (64, 64)))

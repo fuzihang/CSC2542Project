@@ -13,16 +13,16 @@ from utils import DEVICE, str2bool
 from VAE import *
 from torchvision import transforms
 
-EPOCHS = 500
-TRAIN_DIR = 'VAE_train_data'
-VALID_DIR = 'VAE_valid_data'
+EPOCHS = 10
+TRAIN_DIR = '/home/zihang/Documents/npz_data'
+# VALID_DIR = 'VAE_take_cover_valid_data'
 
 def train_vae(model, iterator, opt, start_time):
     model.train()
     losses = []
 
     for i_batch, batch in enumerate(iterator):
-        x_batch = batch.squeeze(0)
+        x_batch = batch.to(DEVICE).squeeze(0)
 
         x_batch = x_batch.to(DEVICE).float()
 
@@ -64,13 +64,14 @@ def val_loss(model, iterator):
 if __name__ == '__main__':
     import time
     model = VAE().to(DEVICE)
+    model.cuda()
     opt = torch.optim.Adam(model.parameters())
     training_dataset = DoomDataset(TRAIN_DIR, 3)
-    training_iterator = DataLoader(training_dataset, batch_size=100, shuffle=True)
+    training_iterator = DataLoader(training_dataset, batch_size=1, shuffle=True)
 
-    valid_dataset = DoomDataset(VALID_DIR, 3)
-    valid_iterator = DataLoader(valid_dataset, batch_size=100)
-    best_val_loss = float('inf')
+    # valid_dataset = DoomDataset(VALID_DIR, 3)
+    # valid_iterator = DataLoader(valid_dataset, batch_size=100)
+    # best_val_loss = float('inf')
     from torch.optim.lr_scheduler import ReduceLROnPlateau
 
     # scheduler = ReduceLROnPlateau(opt, 'min', patience=5)
@@ -81,13 +82,13 @@ if __name__ == '__main__':
     for epoch in range(EPOCHS):
         print(epoch)
         train_vae(model, training_iterator, opt, time.time())
-        valid_loss = val_loss(model, valid_iterator)
-        print(f'valid_loss: {valid_loss}')
-        # scheduler.step(valid_loss)
-        # early_stopping.step(valid_loss)
-        if valid_loss < best_val_loss:
-            best_val_loss = valid_loss
-            torch.save(model.state_dict(), 'vae_best_val_weights')
+        # valid_loss = val_loss(model, valid_iterator)
+        # print(f'valid_loss: {valid_loss}')
+        # # scheduler.step(valid_loss)
+        # # early_stopping.step(valid_loss)
+        # if valid_loss < best_val_loss:
+        #     best_val_loss = valid_loss
+        #     torch.save(model.state_dict(), 'vae_best_val_weights')
 
         # if early_stopping.stop:
         #     torch.save(model.state_dict(), 'vae_final.weights')

@@ -20,7 +20,7 @@ from doom_dataset import DoomDataset
 # from data.loaders import RolloutObservationDataset
 
 TRAIN_DIR = 'VAE_take_cover_train_data'
-VALID_DIR = 'VAE_take_cover_valid_data'
+# VALID_DIR = 'VAE_take_cover_valid_data'
 
 
 parser = argparse.ArgumentParser(description='VAE Trainer')
@@ -60,29 +60,32 @@ transform_test = transforms.Compose([
 ])
 
 dataset_train = DoomDataset(TRAIN_DIR, 3)
-dataset_test = DoomDataset(VALID_DIR, 3)
+# dataset_test = DoomDataset(VALID_DIR, 3)
 train_loader = torch.utils.data.DataLoader(
-    dataset_train, batch_size=args.batch_size, shuffle=True, num_workers=2)
-test_loader = torch.utils.data.DataLoader(
-    dataset_test, batch_size=args.batch_size, shuffle=True, num_workers=2)
+    dataset_train, batch_size=100, shuffle=True, num_workers=2)
+# test_loader = torch.utils.data.DataLoader(
+#     dataset_test, batch_size=args.batch_size, shuffle=True, num_workers=2)
 
 
 model = VAE(3, LSIZE).to(device)
-optimizer = optim.Adam(model.parameters())
+optimizer = optim.Adam(model.parameters(), lr=1e-3)
 scheduler = ReduceLROnPlateau(optimizer, 'min', factor=0.5, patience=5)
 earlystopping = EarlyStopping('min', patience=30)
 
 # Reconstruction + KL divergence losses summed over all elements and batch
 def loss_function(recon_x, x, mu, logsigma):
     """ VAE loss function """
-    BCE = F.mse_loss(recon_x, x, size_average=False)
+    BCE = F.mse_loss(recon_x, x, reduction='sum') / x.shape[0]
 
     # see Appendix B from VAE paper:
     # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
     # https://arxiv.org/abs/1312.6114
     # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
-    KLD = -0.5 * torch.sum(1 + 2 * logsigma - mu.pow(2) - (2 * logsigma).exp())
-    return BCE + KLD
+    KLD = -0.5 * torch.sum(1 + 2 * logsigma - mu.pow(2) - (2 * logsigma).exp()) / x.shape[0]
+    print(f'BCE: {BCE}')
+    print(f'KLD: {KLD}')
+    # return BCE
+    return BCE
 
 import numpy as np
 def train(epoch):
@@ -108,20 +111,20 @@ def train(epoch):
         epoch, train_loss / len(train_loader.dataset)))
 
 
-def test():
-    """ One test epoch """
-    model.eval()
-    # dataset_test.load_next_buffer()
-    test_loss = 0
-    with torch.no_grad():
-        for data in test_loader:
-            data = data.to(device)
-            recon_batch, mu, logvar = model(data)
-            test_loss += loss_function(recon_batch, data, mu, logvar).item()
-
-    test_loss /= len(test_loader.dataset)
-    print('====> Test set loss: {:.4f}'.format(test_loss))
-    return test_loss
+# def test():
+#     """ One test epoch """
+#     model.eval()
+#     # dataset_test.load_next_buffer()
+#     test_loss = 0
+#     with torch.no_grad():
+#         for data in test_loader:
+#             data = data.to(device)
+#             recon_batch, mu, logvar = model(data)
+#             test_loss += loss_function(recon_batch, data, mu, logvar).item()
+#
+#     test_loss /= len(test_loader.dataset)
+#     print('====> Test set loss: {:.4f}'.format(test_loss))
+#     return test_loss
 
 # check vae dir exists, if not, create it
 vae_dir = join(args.logdir, 'vae')
@@ -146,25 +149,25 @@ cur_best = None
 
 for epoch in range(1, args.epochs + 1):
     train(epoch)
-    test_loss = test()
-    scheduler.step(test_loss)
-    earlystopping.step(test_loss)
-
-    # checkpointing
-    best_filename = join(vae_dir, 'best.tar')
+    # test_loss = test()
+    # scheduler.step(test_loss)
+    # earlystopping.step(test_loss)
+    #
+    # # checkpointing
+    # best_filename = join(vae_dir, 'best.tar')
     filename = join(vae_dir, 'checkpoint.tar')
-    is_best = not cur_best or test_loss < cur_best
-    if is_best:
-        cur_best = test_loss
+    # is_best = not cur_best or test_loss < cur_best
+    # if is_best:
+    #     cur_best = test_loss
 
     save_checkpoint({
         'epoch': epoch,
         'state_dict': model.state_dict(),
-        'precision': test_loss,
+        # 'precision': test_loss,
         'optimizer': optimizer.state_dict(),
         'scheduler': scheduler.state_dict(),
         'earlystopping': earlystopping.state_dict()
-    }, is_best, filename, best_filename)
+    }, False, filename, 'abc')
 
 
 

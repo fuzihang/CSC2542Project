@@ -11,7 +11,7 @@ import re
 
 class DoomDataset(Dataset):
 
-    def __init__(self, root_dir, classes=-1, transform=None):
+    def __init__(self, root_dir, classes=-1, train_rnn=False, transform=None):
         """
         root_dir (string): Directory with all the images.
         transform (callable, optional): Optional transform to be applied on a sample.
@@ -20,6 +20,7 @@ class DoomDataset(Dataset):
         self.transform = transform
         self.filenames = [f for f in listdir(self.root_dir)]
         self.classes = classes
+        self.train_rnn = train_rnn
 
     def __len__(self):
         # length = 0
@@ -43,7 +44,17 @@ class DoomDataset(Dataset):
         #         return np.moveaxis(image, -1, 0)
         #
         # raise IndexError('Index out of range.')
+        # data = np.load(os.path.join(self.root_dir, self.filenames[idx]))
+        # image = (data / 255.0).astype(np.float32)
+        # return np.moveaxis(image, -1, 0)
         data = np.load(os.path.join(self.root_dir, self.filenames[idx]))
-        image = (data / 255.0).astype(np.float32)
-        return np.moveaxis(image, -1, 0)
-
+        images = (data['obs'] / 255.0).astype(np.float32)
+        images = np.moveaxis(images, -1, 1)
+        if not self.train_rnn:
+            return images
+        else:
+            obs = images[:-1]
+            next_obs = images[1:]
+            acs = data['action']
+            one_hot_acs = np.eye(2)[acs].astype(np.float32)
+            return {'obs': obs, 'next_obs': next_obs, 'acs': one_hot_acs}
