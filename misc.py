@@ -112,6 +112,7 @@ class RolloutGenerator(object):
         #    [join(mdir, m, 'best.tar') for m in ['vae', 'mdrnn', 'ctrl']]
 
         vae_file = 'vae_final.weights'
+        ctrl_file = 'temp/ctrl/best.tar'
 
         #assert exists(vae_file) and exists(rnn_file),\
         #    "Either vae or mdrnn is untrained."
@@ -162,7 +163,7 @@ class RolloutGenerator(object):
             - action: 1D np array
             - next_hidden (1 x 256) torch tensor
         """
-        _, latent_mu, _ = self.vae(obs)
+        _, _, latent_mu, _ = self.vae(obs)
         #action = self.controller(latent_mu, hidden[0])
         action = self.controller(latent_mu)
         #_, _, _, _, _, next_hidden = self.mdrnn(action, latent_mu, hidden)
@@ -186,7 +187,7 @@ class RolloutGenerator(object):
         obs = self.env.reset()
 
         # This first render is required !
-        self.env.render()
+        # self.env.render()
 
         #hidden = [
         #    torch.zeros(1, RSIZE).to(self.device)
@@ -197,12 +198,13 @@ class RolloutGenerator(object):
         while True:
             obs = transform(obs).unsqueeze(0).to(self.device)
             action = self.get_action_and_transition(obs)
+            action = np.argmax(action)
             obs, reward, done, _ = self.env.step(action)
 
-            if render:
-                self.env.render()
+            # if render:
+            #     self.env.render()
 
             cumulative += reward
             if done or i > self.time_limit:
-                return - cumulative
+                return cumulative
             i += 1

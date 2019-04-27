@@ -31,12 +31,13 @@ from tqdm import tqdm
 
 
 # multiprocessing variables
-n_samples = 5
-pop_size = 2
-num_workers = min(32, n_samples * pop_size)
+n_samples = 64
+pop_size = 16
+# num_workers = min(32, n_samples * pop_size)
+num_workers = 4
 time_limit = 1000
 dr = 'temp'
-target_run = 300
+target_return = 300
 
 # create tmp dir if non existent and clean it if existent
 tmp_dir = join(dr, 'tmp')
@@ -89,6 +90,7 @@ def slave_routine(p_queue, r_queue, e_queue, p_index):
         r_gen = RolloutGenerator(dr, device, time_limit)
 
         while e_queue.empty():
+            print(1)
             if p_queue.empty():
                 sleep(.1)
             else:
@@ -105,6 +107,7 @@ e_queue = Queue()
 
 for p_index in range(num_workers):
     Process(target=slave_routine, args=(p_queue, r_queue, e_queue, p_index)).start()
+    # slave_routine(p_queue, r_queue, e_queue, p_index)
 
 
 ################################################################################
@@ -158,7 +161,7 @@ es = cma.CMAEvolutionStrategy(flatten_parameters(parameters), 0.1,
 epoch = 0
 log_step = 3
 while not es.stop():
-    if cur_best is not None and - cur_best > target_return:
+    if cur_best is not None and cur_best > target_return:
         print("Already better than target, breaking...")
         break
 
@@ -196,7 +199,7 @@ while not es.stop():
                  'reward': - cur_best,
                  'state_dict': controller.state_dict()},
                 join(ctrl_dir, 'best.tar'))
-        if - best > target_return:
+        if best > target_return:
             print("Terminating controller training with value {}...".format(best))
             break
 

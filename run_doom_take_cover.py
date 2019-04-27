@@ -49,7 +49,7 @@ for eps in range(start_eps, end_eps):
     acs = np.array(acs, dtype=np.uint8)
     termination = np.array(termination, dtype=np.uint8)
 
-    np.savez_compressed(os.path.join(OUT_DIR, f'eps_{eps}]'), obs=obs, action=acs, termination=termination)
+    # np.savez_compressed(os.path.join(OUT_DIR, f'eps_{eps}]'), obs=obs, action=acs, termination=termination)
 
     total_step += 1
 

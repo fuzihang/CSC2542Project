@@ -9,13 +9,15 @@ from torch.utils.data import Dataset, DataLoader
 if not os.path.exists('VAE_regen_img'):
     os.mkdir('VAE_regen_img')
 
-dataset = DoomDataset('VAE_take_cover_train_data')
-data_iter = DataLoader(dataset, batch_size=10, shuffle=True)
+dataset = DoomDataset('/home/zihang/Documents/npz_data')
+data_iter = DataLoader(dataset, batch_size=1, shuffle=True)
 
-data = enumerate(data_iter).__next__()[1].detach().cpu().numpy()
+data = enumerate(data_iter).__next__()[1].squeeze().detach().cpu().numpy()
 
 model = VAE().to(DEVICE)
 model.load_state_dict(torch.load('vae_final.weights'))
+
+
 
 
 for i in range(data.shape[0]):
