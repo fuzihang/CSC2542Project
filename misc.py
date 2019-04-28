@@ -127,7 +127,11 @@ class RolloutGenerator(object):
         #              m, s['epoch'], s['precision']))
 
         self.vae = VAE().to(device)
-        self.vae.load_state_dict(torch.load(vae_file))
+        if torch.cuda.is_available():
+            self.vae.load_state_dict(torch.load(vae_file, map_location='cpu'))
+        else:
+            self.vae.load_state_dict(torch.load(vae_file))
+
 
         #self.mdrnn = MDRNNCell(LSIZE, ASIZE, RSIZE, 5).to(device)
         #self.mdrnn.load_state_dict(
