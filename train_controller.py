@@ -36,7 +36,7 @@ pop_size = 16
 num_workers = 6
 time_limit = 1000
 dr = 'temp'
-target_return = 300
+target_return = 700
 
 # create tmp dir if non existent and clean it if existent
 tmp_dir = join(dr, 'tmp')
@@ -151,7 +151,7 @@ def evaluate(solutions, results, rollouts=100):
 ################################################################################
 #                           Launch CMA                                         #
 ################################################################################
-if args.use_rnn:
+if use_rnn:
     controller = Controller(VAE_LATENT_DIM + RNN_HIDDEN_DIM, ACTION_DIM)
 else:
     controller = Controller(VAE_LATENT_DIM, ACTION_DIM)
@@ -211,7 +211,7 @@ while not es.stop():
                 {'epoch': epoch,
                  'reward': - cur_best,
                  'state_dict': controller.state_dict()},
-                join(ctrl_dir, 'best.tar'))
+                join(ctrl_dir if use_rnn else ctrl_dir_rnn, 'best.tar'))
         if -best > target_return:
             print("Terminating controller training with value {}...".format(best))
             break
