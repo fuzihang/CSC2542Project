@@ -211,7 +211,7 @@ while not es.stop():
                 {'epoch': epoch,
                  'reward': - cur_best,
                  'state_dict': controller.state_dict()},
-                join(ctrl_dir if use_rnn else ctrl_dir_rnn, 'best.tar'))
+                join(ctrl_dir_rnn if use_rnn else ctrl_dir, 'best.tar'))
         if -best > target_return:
             print("Terminating controller training with value {}...".format(best))
             break
