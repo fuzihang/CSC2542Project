@@ -56,7 +56,7 @@ if not exists(ctrl_dir_rnn):
     mkdir(ctrl_dir_rnn)
 
 vae_file = 'vae_final.weights'
-rnn_file = 'log/mdrnn/checkpoint.tar'
+rnn_file = 'rnn_checkpoint.tar'
 ctrl_file = 'temp/ctrl_rnn/best.tar' if use_rnn else 'temp/ctrl/best.tar'
 
 
