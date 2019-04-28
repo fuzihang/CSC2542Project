@@ -96,7 +96,7 @@ def slave_routine(p_queue, r_queue, e_queue, p_index):
     sys.stderr = open(join(tmp_dir, str(getpid()) + '.err'), 'a')
 
     with torch.no_grad():
-        r_gen = RolloutGenerator(vae_file, ctrl_file, rnn_file, device, time_limit, use_rnn=True)
+        r_gen = RolloutGenerator(vae_file, ctrl_file, rnn_file, device, time_limit, use_rnn=use_rnn)
 
         while e_queue.empty():
             # print(1)

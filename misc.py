@@ -112,6 +112,10 @@ class RolloutGenerator(object):
         if self.use_rnn:
             self.controller = Controller(VAE_LATENT_DIM + RNN_HIDDEN_DIM, ACTION_DIM).to(device)
 
+        else:
+            self.controller = Controller(VAE_LATENT_DIM, ACTION_DIM).to(device)
+
+
         if exists(ctrl_file):
             ctrl_state = torch.load(ctrl_file, map_location={'cuda:0': str(device)})
             print("Loading Controller with reward {}".format(
