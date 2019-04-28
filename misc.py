@@ -11,16 +11,6 @@ from MDRNN import MDRNN_Rollout
 import torch
 import argparse
 
-DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-
-def str2bool(v):
-    if v.lower() in ('yes', 'true', 't', 'y', '1'):
-        return True
-    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
-        return False
-    else:
-        raise argparse.ArgumentTypeError('Boolean value expected.')
-
 
 ACTION_DIM = 2
 VAE_LATENT_DIM = 64

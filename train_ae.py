@@ -2,7 +2,7 @@
 from torch.utils.data import Dataset, DataLoader
 
 from doom_dataset import DoomDataset
-from misc import DEVICE
+from utils import DEVICE
 from AE import *
 
 EPOCHS = 10

@@ -7,7 +7,7 @@ from misc import VAE_LATENT_DIM
 from AE import AE
 from MDRNN import MDRNN_Train, gmm_loss
 from doom_dataset import DoomDataset
-from misc import DEVICE
+from utils import DEVICE
 import torch
 import argparse
 import time

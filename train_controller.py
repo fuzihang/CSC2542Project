@@ -15,7 +15,8 @@ import cma
 from controller import Controller
 import numpy as np
 from misc import RolloutGenerator, ACTION_DIM, RNN_HIDDEN_DIM, VAE_LATENT_DIM
-from misc import load_parameters, str2bool
+from misc import load_parameters
+from utils import str2bool
 from misc import flatten_parameters
 from tqdm import tqdm
 import argparse

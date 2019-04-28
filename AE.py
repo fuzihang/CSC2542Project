@@ -1,7 +1,7 @@
 LATENT_DIM = 64
 HIDDEN_UNITS = 500
 
-from misc import DEVICE
+from utils import DEVICE
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
