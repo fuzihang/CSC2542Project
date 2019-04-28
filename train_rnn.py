@@ -25,39 +25,28 @@ args = parser.parse_args()
 BSIZE = 16
 SEQ_LEN = 32
 epochs = 20
+
+# this file is too large; saved somewhere else
 TRAIN_DIR = '/home/zihang/Documents/npz_data'
 TEST_DIR = '/home/zihang/Documents/npz_data_test'
-# Loading VAE
-# vae_file = join(args.logdir, 'vae', 'best.tar')
-# assert exists(vae_file), "No trained VAE in the logdir..."
-# state = torch.load(vae_file)
-# print("Loading VAE at epoch {} "
-#       "with test error {}".format(
-#     state['epoch'], state['precision']))
 
 vae = AE().to(DEVICE)
-# vae.load_state_dict(state['state_dict'])
 vae.load_state_dict(torch.load('vae_final.weights'))
-# Loading model
-rnn_dir = join(args.logdir, 'mdrnn')
-rnn_file = join(rnn_dir, 'best_rnn.tar')
+rnn_file_path = 'rnn_checkpoint.tar'
 
-if not exists(rnn_dir):
-    mkdir(rnn_dir)
 
 mdrnn = MDRNN_Train(64, 2, 512, 5)
 mdrnn.to(DEVICE)
 optimizer = torch.optim.RMSprop(mdrnn.parameters(), lr=1e-3, alpha=.9)
 
-if exists(rnn_file) and not args.noreload:
-    rnn_state = torch.load(rnn_file)
+if exists(rnn_file_path) and not args.noreload:
+    rnn_state = torch.load(rnn_file_path)
     print("Loading MDRNN at epoch {} "
           "with test error {}".format(
         rnn_state["epoch"], rnn_state["precision"]))
     mdrnn.load_state_dict(rnn_state["state_dict"])
     optimizer.load_state_dict(rnn_state["optimizer"])
-    # scheduler.load_state_dict(state['scheduler'])
-    # earlystopping.load_state_dict(state['earlystopping'])
+
 
 # Data Loading
 transform = transforms.Lambda(
@@ -65,9 +54,6 @@ transform = transforms.Lambda(
 
 train_dataset = DoomDataset(TRAIN_DIR, train_rnn=True)
 train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True)
-
-# test_dataset = DoomDataset(TEST_DIR, train_rnn=True)
-# test_loader = DataLoader(test_dataset)
 
 
 def to_latent(obs, next_obs):
@@ -130,7 +116,7 @@ cur_best = None
 
 for epoch in range(epochs):
     train_rnn(mdrnn, train_loader, optimizer, time.time())
-    checkpoint_fname = join(rnn_dir, 'checkpoint.tar')
+    checkpoint_fname = 'rnn_checkpoint.tar'
     torch.save({
         "state_dict": mdrnn.state_dict(),
         "epoch": epoch},
