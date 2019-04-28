@@ -159,7 +159,6 @@ else:
 
 # define current best and load parameters
 cur_best = None
-ctrl_file = join(ctrl_dir_rnn, 'best.tar')
 print("Attempting to load previous best...")
 if exists(ctrl_file):
     state = torch.load(ctrl_file, map_location={'cuda:0': 'cpu'})
