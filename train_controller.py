@@ -14,27 +14,26 @@ import torch
 import cma
 from controller import Controller
 import numpy as np
-from misc import RolloutGenerator, ASIZE, RSIZE, LSIZE
+from misc import RolloutGenerator, ACTION_DIM, RNN_HIDDEN_DIM, VAE_LATENT_DIM
 from misc import load_parameters
 from misc import flatten_parameters
 from tqdm import tqdm
+import argparse
 
-# parsing
-#parser = argparse.ArgumentParser()
-#parser.add_argument('--logdir', type=str, help='Where everything is stored.')
-#parser.add_argument('--n-samples', type=int, help='Number of samples used to obtain '                    'return estimate.')
-#parser.add_argument('--pop-size', type=int, help='Population size.')
-#parser.add_argument('--target-return', type=float, help='Stops once the return '                'gets above target_return')
-#parser.add_argument('--display', action='store_true', help="Use progress bars if "                    "specified.")
-#parser.add_argument('--max-workers', type=int, help='Maximum number of workers.',                    default=32)
-#args = parser.parse_args()
+parser = argparse.ArgumentParser()
 
+parser.add_argument('--use_rnn', type=str, required=True)
+args = parser.parse_args()
+
+use_rnn = eval(args.use_rnn)
+
+assert type(use_rnn) is bool
 
 # multiprocessing variables
 n_samples = 64
 pop_size = 16
 # num_workers = min(32, n_samples * pop_size)
-num_workers = 4
+num_workers = 6
 time_limit = 1000
 dr = 'temp'
 target_return = 300
@@ -49,8 +48,16 @@ else:
 
 # create ctrl dir if non exitent
 ctrl_dir = join(dr, 'ctrl')
+ctrl_dir_rnn = join(dr, 'ctrl_rnn')
 if not exists(ctrl_dir):
     mkdir(ctrl_dir)
+
+if not exists(ctrl_dir_rnn):
+    mkdir(ctrl_dir_rnn)
+
+vae_file = 'vae_final.weights'
+rnn_file = 'log/mdrnn/checkpoint.tar'
+ctrl_file = 'temp/ctrl_rnn/best.tar' if use_rnn else 'temp/ctrl/best.tar'
 
 
 ################################################################################
@@ -85,15 +92,14 @@ def slave_routine(p_queue, r_queue, e_queue, p_index):
     else:
         device = torch.device('cpu')
 
-    # redirect streams
     sys.stdout = open(join(tmp_dir, str(getpid()) + '.out'), 'a')
     sys.stderr = open(join(tmp_dir, str(getpid()) + '.err'), 'a')
 
     with torch.no_grad():
-        r_gen = RolloutGenerator(dr, device, time_limit)
+        r_gen = RolloutGenerator(vae_file, ctrl_file, rnn_file, device, time_limit, use_rnn=True)
 
         while e_queue.empty():
-            print(1)
+            # print(1)
             if p_queue.empty():
                 sleep(.1)
             else:
@@ -145,11 +151,15 @@ def evaluate(solutions, results, rollouts=100):
 ################################################################################
 #                           Launch CMA                                         #
 ################################################################################
-controller = Controller(LSIZE, ASIZE)  # dummy instance
+if args.use_rnn:
+    controller = Controller(VAE_LATENT_DIM + RNN_HIDDEN_DIM, ACTION_DIM)
+else:
+    controller = Controller(VAE_LATENT_DIM, ACTION_DIM)
+
 
 # define current best and load parameters
 cur_best = None
-ctrl_file = join(ctrl_dir, 'best.tar')
+ctrl_file = join(ctrl_dir_rnn, 'best.tar')
 print("Attempting to load previous best...")
 if exists(ctrl_file):
     state = torch.load(ctrl_file, map_location={'cuda:0': 'cpu'})
