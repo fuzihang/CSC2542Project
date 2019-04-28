@@ -1,15 +1,26 @@
 """ Various auxiliary utilities """
 import math
 from os.path import join, exists
-import torch
 from torchvision import transforms
 import numpy as np
-from VAE import VAE
+from AE import AE
 from controller import Controller
-#import gym
-#import gym.envs.box2d
 from vizdoom_take_cover import VizdoomTakeCover
-from other_mdrnn import MDRNNCell
+from MDRNN import MDRNN_Rollout
+
+import torch
+import argparse
+
+DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+
+def str2bool(v):
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+
 
 ACTION_DIM = 2
 VAE_LATENT_DIM = 64
@@ -17,7 +28,6 @@ RNN_HIDDEN_DIM = 512
 IMG_SIZE = 64
 SIZE = 64
 
-# Same
 transform = transforms.Compose([
     transforms.ToPILImage(),
     transforms.Resize((IMG_SIZE, IMG_SIZE)),
@@ -26,11 +36,6 @@ transform = transforms.Compose([
 
 def flatten_parameters(params):
     """ Flattening parameters.
-
-    :args params: generator of parameters (as returned by module.parameters())
-
-    :returns: flattened parameters (i.e. one tensor of dimension 1 with all
-        parameters concatenated)
     """
     return torch.cat([p.detach().view(-1) for p in params], dim=0).cpu().numpy()
 
@@ -84,20 +89,8 @@ class RolloutGenerator(object):
 
         self.use_rnn = use_rnn
 
-        #assert exists(vae_file) and exists(rnn_file),\
-        #    "Either vae or mdrnn is untrained."
-
-        #vae_state, rnn_state = [
-        #    torch.load(fname, map_location={'cuda:0': str(device)})
-        #    for fname in (vae_file, rnn_file)]
-
-        #for m, s in (('VAE', vae_state), ('MDRNN', rnn_state)):
-        #    print("Loading {} at epoch {} "
-        #          "with test loss {}".format(
-        #              m, s['epoch'], s['precision']))
-
-        self.vae = VAE().to(device)
-        self.mdrnn = MDRNNCell(VAE_LATENT_DIM, ACTION_DIM, RNN_HIDDEN_DIM, 5).to(device)
+        self.vae = AE().to(device)
+        self.mdrnn = MDRNN_Rollout(VAE_LATENT_DIM, ACTION_DIM, RNN_HIDDEN_DIM, 5).to(device)
         self.rnn_hidden_state = (torch.zeros(1, RNN_HIDDEN_DIM).to(device), torch.zeros(1, RNN_HIDDEN_DIM).to(device))
 
         if not torch.cuda.is_available():
@@ -129,17 +122,6 @@ class RolloutGenerator(object):
 
     def get_action_and_transition(self, obs):
         """ Get action and transition.
-
-        Encode obs to latent using the VAE, then obtain estimation for next
-        latent and next hidden state using the MDRNN and compute the controller
-        corresponding action.
-
-        :args obs: current observation (1 x 3 x 64 x 64) torch tensor
-        :args hidden: current hidden state (1 x 256) torch tensor
-
-        :returns: (action, next_hidden)
-            - action: 1D np array
-            - next_hidden (1 x 256) torch tensor
         """
         _, _, latent_mu, _ = self.vae(obs)
         if self.use_rnn:
@@ -149,31 +131,17 @@ class RolloutGenerator(object):
 
         else:
             action = self.controller(latent_mu)
-        #return action.squeeze().cpu().numpy(), next_hidden
         return action.squeeze().cpu().numpy()
 
-    def rollout(self, params, render=False):
+    def rollout(self, params):
         """ Execute a rollout and returns minus cumulative reward.
 
-        Load :params: into the controller and execute a single rollout. This
-        is the main API of this class.
-
-        :args params: parameters as a single 1D np array
-
-        :returns: minus cumulative reward
         """
         # copy params into the controller
         if params is not None:
             load_parameters(params, self.controller)
 
         obs = self.env.reset()
-
-        # This first render is required !
-        # self.env.render()
-
-        #hidden = [
-        #    torch.zeros(1, RSIZE).to(self.device)
-        #    for _ in range(2)]
 
         cumulative = 0
         i = 0
@@ -183,8 +151,6 @@ class RolloutGenerator(object):
             action = np.argmax(action)
             obs, reward, done, _ = self.env.step(action)
 
-            # if render:
-            #     self.env.render()
 
             cumulative += reward
             if done or i > self.time_limit:

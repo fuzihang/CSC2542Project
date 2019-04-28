@@ -15,7 +15,7 @@ import cma
 from controller import Controller
 import numpy as np
 from misc import RolloutGenerator, ACTION_DIM, RNN_HIDDEN_DIM, VAE_LATENT_DIM
-from misc import load_parameters
+from misc import load_parameters, str2bool
 from misc import flatten_parameters
 from tqdm import tqdm
 import argparse
@@ -25,14 +25,13 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--use_rnn', type=str, required=True)
 args = parser.parse_args()
 
-use_rnn = eval(args.use_rnn)
+use_rnn = str2bool(args.use_rnn)
 
 assert type(use_rnn) is bool
 
-# multiprocessing variables
-n_samples = 64
-pop_size = 16
-# num_workers = min(32, n_samples * pop_size)
+# Multiprocessing
+num_samples = 64
+num_solutions = 16
 num_workers = 6
 time_limit = 1000
 dr = 'temp'
@@ -99,7 +98,6 @@ def slave_routine(p_queue, r_queue, e_queue, p_index):
         r_gen = RolloutGenerator(vae_file, ctrl_file, rnn_file, device, time_limit, use_rnn=use_rnn)
 
         while e_queue.empty():
-            # print(1)
             if p_queue.empty():
                 sleep(.1)
             else:
@@ -168,7 +166,7 @@ if exists(ctrl_file):
 
 parameters = controller.parameters()
 es = cma.CMAEvolutionStrategy(flatten_parameters(parameters), 0.1,
-                              {'popsize': pop_size})
+                              {'popsize': num_solutions})
 
 epoch = 0
 log_step = 3
@@ -177,21 +175,21 @@ while not es.stop():
         print("Already better than target, breaking...")
         break
 
-    r_list = [0] * pop_size  # result list
+    r_list = [0] * num_solutions  # result list
     solutions = es.ask()
 
     # push parameters to queue
     for s_id, s in enumerate(solutions):
-        for _ in range(n_samples):
+        for _ in range(num_samples):
             p_queue.put((s_id, s))
 
     # retrieve results
-    pbar = tqdm(total=pop_size * n_samples)
-    for _ in range(pop_size * n_samples):
+    pbar = tqdm(total=num_solutions * num_samples)
+    for _ in range(num_solutions * num_samples):
         while r_queue.empty():
             sleep(.1)
         r_s_id, r = r_queue.get()
-        r_list[r_s_id] += r / n_samples
+        r_list[r_s_id] += r / num_samples
         pbar.update(1)
     pbar.close()
 
