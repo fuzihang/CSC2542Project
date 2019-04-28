@@ -127,7 +127,7 @@ class RolloutGenerator(object):
         #              m, s['epoch'], s['precision']))
 
         self.vae = VAE().to(device)
-        if torch.cuda.is_available():
+        if not torch.cuda.is_available():
             self.vae.load_state_dict(torch.load(vae_file, map_location='cpu'))
         else:
             self.vae.load_state_dict(torch.load(vae_file))
