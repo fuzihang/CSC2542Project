@@ -206,5 +206,5 @@ class RolloutGenerator(object):
 
             cumulative += reward
             if done or i > self.time_limit:
-                return cumulative
+                return -cumulative
             i += 1
