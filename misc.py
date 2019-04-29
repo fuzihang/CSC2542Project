@@ -121,7 +121,7 @@ class RolloutGenerator(object):
 
         else:
             action = self.controller(latent_mu)
-        return action.squeeze().cpu().numpy()
+        return action.squeeze().detach().cpu().numpy()
 
     def rollout(self, params):
         """ Execute a rollout and returns minus cumulative reward.
