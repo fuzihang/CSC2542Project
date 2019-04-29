@@ -25,20 +25,11 @@ transform = transforms.Compose([
 ])
 
 def flatten_parameters(params):
-    """ Flattening parameters.
-    """
+    #Converts parameters into single 1D array
     return torch.cat([p.detach().view(-1) for p in params], dim=0).cpu().numpy()
 
 def unflatten_parameters(params, example, device):
-    """ Unflatten parameters.
-
-    :args params: parameters as a single 1D np array
-    :args example: generator of parameters (as returned by module.parameters()),
-        used to reshape params
-    :args device: where to store unflattened parameters
-
-    :returns: unflattened parameters
-    """
+    #Converts params to example dimensions
     params = torch.Tensor(params).to(device)
     idx = 0
     unflattened = []
@@ -48,11 +39,7 @@ def unflatten_parameters(params, example, device):
     return unflattened
 
 def load_parameters(params, controller):
-    """ Load flattened parameters into controller.
-
-    :args params: parameters as a single 1D np array
-    :args controller: module in which params is loaded
-    """
+    #load params into controller
     proto = next(controller.parameters())
     params = unflatten_parameters(
         params, controller.parameters(), proto.device)
@@ -61,21 +48,8 @@ def load_parameters(params, controller):
         p.data.copy_(p_0)
 
 class RolloutGenerator(object):
-    """ Utility to generate rollouts.
-
-    Encapsulate everything that is needed to generate rollouts in the TRUE ENV
-    using a controller with previously trained VAE and MDRNN.
-
-    :attr vae: VAE model loaded from mdir/vae
-    :attr mdrnn: MDRNN model loaded from mdir/mdrnn
-    :attr controller: Controller, either loaded from mdir/ctrl or randomly
-        initialized
-    :attr env: instance of the CarRacing-v0 gym environment
-    :attr device: device used to run VAE, MDRNN and Controller
-    :attr time_limit: rollouts have a maximum of time_limit timesteps
-    """
     def __init__(self, vae_file, ctrl_file, rnn_file, device, time_limit, use_rnn=False):
-        """ Build vae, rnn, controller and environment. """
+        #initializes models and environment
 
         self.use_rnn = use_rnn
 
@@ -111,8 +85,6 @@ class RolloutGenerator(object):
         self.time_limit = time_limit
 
     def get_action_and_transition(self, obs):
-        """ Get action and transition.
-        """
         _, _, latent_mu, _ = self.vae(obs)
         if self.use_rnn:
             action = self.controller(torch.cat((latent_mu, self.rnn_hidden_state[0]), dim=1))
@@ -124,10 +96,6 @@ class RolloutGenerator(object):
         return action.squeeze().detach().cpu().numpy()
 
     def rollout(self, params):
-        """ Execute a rollout and returns minus cumulative reward.
-
-        """
-        # copy params into the controller
         if params is not None:
             load_parameters(params, self.controller)
 
