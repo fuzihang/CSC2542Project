@@ -1,10 +1,3 @@
-"""
-Training a linear controller on latent + recurrent state
-with CMAES.
-
-This is a bit complex. num_workers slave threads are launched
-to process a queue filled with parameters to be evaluated.
-"""
 import sys
 from os.path import join, exists
 from os import mkdir, unlink, listdir, getpid
@@ -30,7 +23,7 @@ use_rnn = str2bool(args.use_rnn)
 
 assert type(use_rnn) is bool
 
-# Multiprocessing
+# hardcoded parameters
 num_samples = 64
 num_solutions = 16
 num_workers = 6
@@ -55,101 +48,24 @@ if not exists(ctrl_dir):
 if not exists(ctrl_dir_rnn):
     mkdir(ctrl_dir_rnn)
 
+#hardcoded file names
 vae_file = 'vae_final.weights'
 rnn_file = 'rnn_checkpoint.tar'
 ctrl_file = 'temp/ctrl_rnn/best.tar' if use_rnn else 'temp/ctrl/best.tar'
 
 
-################################################################################
-#                           Thread routines                                    #
-################################################################################
-def slave_routine(p_queue, r_queue, e_queue, p_index):
-    """ Thread routine.
-
-    Threads interact with p_queue, the parameters queue, r_queue, the result
-    queue and e_queue the end queue. They pull parameters from p_queue, execute
-    the corresponding rollout, then place the result in r_queue.
-
-    Each parameter has its own unique id. Parameters are pulled as tuples
-    (s_id, params) and results are pushed as (s_id, result).  The same
-    parameter can appear multiple times in p_queue, displaying the same id
-    each time.
-
-    As soon as e_queue is non empty, the thread terminate.
-
-    When multiple gpus are involved, the assigned gpu is determined by the
-    process index p_index (gpu = p_index % n_gpus).
-
-    :args p_queue: queue containing couples (s_id, parameters) to evaluate
-    :args r_queue: where to place results (s_id, results)
-    :args e_queue: as soon as not empty, terminate
-    :args p_index: the process index
-    """
-    # init routine
-    if torch.cuda.is_available():
-        gpu = p_index % torch.cuda.device_count()
-        device = torch.device('cuda:{}'.format(gpu))
-    else:
-        device = torch.device('cpu')
-
-    sys.stdout = open(join(tmp_dir, str(getpid()) + '.out'), 'a')
-    sys.stderr = open(join(tmp_dir, str(getpid()) + '.err'), 'a')
-
-    with torch.no_grad():
-        r_gen = RolloutGenerator(vae_file, ctrl_file, rnn_file, device, time_limit, use_rnn=use_rnn)
-
-        while e_queue.empty():
-            if p_queue.empty():
-                sleep(.1)
-            else:
-                s_id, params = p_queue.get()
-                r_queue.put((s_id, r_gen.rollout(params)))
-
-
-################################################################################
-#                Define queues and start workers                               #
-################################################################################
+# p_queue: parameters queue, contains id and parameters to evaluate
 p_queue = Queue()
+# r_queue: result queue
 r_queue = Queue()
+# e_queue: end queue, terminates when it's not empty
 e_queue = Queue()
 
+# spawn workers
 for p_index in range(num_workers):
     Process(target=slave_routine, args=(p_queue, r_queue, e_queue, p_index)).start()
-    # slave_routine(p_queue, r_queue, e_queue, p_index)
 
-
-################################################################################
-#                           Evaluation                                         #
-################################################################################
-def evaluate(solutions, results, rollouts=100):
-    """ Give current controller evaluation.
-
-    Evaluation is minus the cumulated reward averaged over rollout runs.
-
-    :args solutions: CMA set of solutions
-    :args results: corresponding results
-    :args rollouts: number of rollouts
-
-    :returns: minus averaged cumulated reward
-    """
-    index_min = np.argmin(results)
-    best_guess = solutions[index_min]
-    restimates = []
-
-    for s_id in range(rollouts):
-        p_queue.put((s_id, best_guess))
-
-    print("Evaluating...")
-    for _ in tqdm(range(rollouts)):
-        while r_queue.empty():
-            sleep(.1)
-        restimates.append(r_queue.get()[1])
-
-    return best_guess, np.mean(restimates), np.std(restimates)
-
-################################################################################
-#                           Launch CMA                                         #
-################################################################################
+# include rnn hidden layers as input
 if use_rnn:
     controller = Controller(VAE_LATENT_DIM + RNN_HIDDEN_DIM, ACTION_DIM)
 else:
@@ -165,6 +81,7 @@ if exists(ctrl_file):
     controller.load_state_dict(state['state_dict'])
     print("Previous best was {}...".format(-cur_best))
 
+# initialize cmaes
 parameters = controller.parameters()
 es = cma.CMAEvolutionStrategy(flatten_parameters(parameters), 0.1,
                               {'popsize': num_solutions})
@@ -198,7 +115,7 @@ while not es.stop():
     es.logger.add()
     es.disp()
 
-    # evaluation and saving
+    # evaluating and saving
     if epoch % log_step == log_step - 1:
         best_params, best, std_best = evaluate(solutions, r_list)
         print("Current evaluation: {}".format(best))
@@ -222,3 +139,43 @@ es.result_pretty()
 e_queue.put('EOP')
 cma.plot()
 
+
+def slave_routine(p_queue, r_queue, e_queue, p_index):
+    # p_index: process index
+
+    if torch.cuda.is_available():
+        gpu = p_index % torch.cuda.device_count()
+        device = torch.device('cuda:{}'.format(gpu))
+    else:
+        device = torch.device('cpu')
+
+    sys.stdout = open(join(tmp_dir, str(getpid()) + '.out'), 'a')
+    sys.stderr = open(join(tmp_dir, str(getpid()) + '.err'), 'a')
+
+    with torch.no_grad():
+        r_gen = RolloutGenerator(vae_file, ctrl_file, rnn_file, device, time_limit, use_rnn=use_rnn)
+
+        while e_queue.empty():
+            if p_queue.empty():
+                sleep(.1)
+            else:
+                s_id, params = p_queue.get()
+                r_queue.put((s_id, r_gen.rollout(params)))
+
+
+def evaluate(solutions, results, rollouts=100):
+    # evaluation is minus the cumulated reward averaged over rollout runs.
+    index_min = np.argmin(results)
+    best_guess = solutions[index_min]
+    restimates = []
+
+    for s_id in range(rollouts):
+        p_queue.put((s_id, best_guess))
+
+    print("Evaluating...")
+    for _ in tqdm(range(rollouts)):
+        while r_queue.empty():
+            sleep(.1)
+        restimates.append(r_queue.get()[1])
+
+    return best_guess, np.mean(restimates), np.std(restimates)
